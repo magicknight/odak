@@ -421,6 +421,8 @@ class raytracing():
         return self.FindInterFunc(vector,sphere,self.FuncSpher,self.FuncNormSpher,init=init,error=error,numiter=numiter,iternotify=iternotify)
     def FindInterFunc(self,vector,SurfParam,Func,FuncNorm,init=None,error=0.00000001,numiter=1000,iternotify='no'):
         # Method for finding intersection in between a vector and a parametric surface
+        if not (isinstance(vector, ndarray)):
+            return 0,0
         number   = 0
         distance = 1
         olddist  = 0
