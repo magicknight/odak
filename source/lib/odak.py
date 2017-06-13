@@ -1,5 +1,6 @@
+ # -*- coding: utf-8 -*-
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
+# -*-  -*-
 
 # Whole library can be found under https://github.com/kunguz/odak,
 
@@ -27,6 +28,87 @@ debug = True
 def prompt(txt,who='odak',debug=True):
     if debug == True:
         print('[%s] [%s] %s' % (str(datetime.now()),who,txt))
+
+def inches2mm(val):
+    return val*0.0254*1000
+
+def inches2m(val):
+    return val*0.0254
+
+def mm2m(val):
+    return val*0.001
+
+
+def rotateRayWorldX(ray, angle):
+    # code from https://en.wikipedia.org/wiki/Rotation_matrix
+    loc = ray[:1,:]
+    dir = ray[1:,:]
+    mat = array([[1, 0, 0], [0, cos(radians(angle)), -sin(radians(angle))], [0, sin(radians(angle)), cos(radians(angle))]])
+    new_dir = mat.dot(dir)
+    new_dir = reshape(new_dir, dir.shape)
+    new_ray = concatenate((loc, new_dir), axis=0)
+    return new_ray
+
+
+def rotateRayWorldY(ray, angle):
+    # code from https://en.wikipedia.org/wiki/Rotation_matrix
+    loc = ray[:1,:]
+    dir = ray[1:,:]
+    mat = array([[cos(radians(angle)), 0, sin(radians(angle))], [0, 1, 0], [-sin(radians(angle)), 0, cos(radians(angle))]])
+    new_dir = mat.dot(dir)
+    new_dir = reshape(new_dir, dir.shape)
+    new_ray = concatenate((loc, new_dir), axis=0)
+    return new_ray
+
+
+def rotateRayWorldZ(ray, angle):
+    # code from https://en.wikipedia.org/wiki/Rotation_matrix
+    loc = ray[:1,:]
+    dir = ray[1:,:]
+    mat = array([[cos(radians(angle)), -sin(radians(angle)), 0], [sin(radians(angle)), cos(radians(angle)), 0], [0, 0, 1]])
+    new_dir = mat.dot(dir)
+    new_dir = reshape(new_dir, dir.shape)
+    new_ray = concatenate((loc, new_dir), axis=0)
+    return new_ray
+
+
+def checkPointInSphere(pt, sphere):
+    loc = sphere[:3]
+    radius = sphere[3]
+    dist = sqrt(sum((array(pt)-array(loc))**2))
+    if(dist < radius):
+        return True
+    else:
+        return False
+
+
+class Lens():
+    sphere1 = None
+    sphere2 = None
+    mesh = None
+    mesh1 = None
+    mesh2 = None
+    
+    def calculateIntersectionSpheres(self, mesh1, mesh2):
+        sampleno = mesh1.shape[0]
+        self.mesh = array([], type(mesh1[0,0,0])).reshape(3,0)
+        for i in xrange(0, sampleno - 1):
+            for j in xrange(0, sampleno - 1):
+                if(checkPointInSphere(mesh1[i,j], self.sphere2)):
+                    self.mesh = concatenate((self.mesh, mesh1[i,j,:].reshape(3,1)), axis = 1)
+                if(checkPointInSphere(mesh1[i+1,j], self.sphere2)):
+                    self.mesh = concatenate((self.mesh, mesh1[i+1,j,:].reshape(3,1)), axis = 1)
+                if(checkPointInSphere(mesh1[i,j+1], self.sphere2)):
+                    self.mesh = concatenate((self.mesh, mesh1[i,j+1,:].reshape(3,1)), axis = 1)
+        for i in xrange(0, sampleno - 1):
+            for j in xrange(0, sampleno - 1):
+                if(checkPointInSphere(mesh2[i,j], self.sphere1)):
+                    self.mesh = concatenate((self.mesh, mesh2[i,j,:].reshape(3,1)), axis = 1)
+                if(checkPointInSphere(mesh2[i+1,j], self.sphere1)):
+                    self.mesh = concatenate((self.mesh, mesh2[i+1,j,:].reshape(3,1)), axis = 1)
+                if(checkPointInSphere(mesh2[i,j+1], self.sphere1)):
+                    self.mesh = concatenate((self.mesh, mesh2[i,j+1,:].reshape(3,1)), axis = 1)
+
 
 class ParaxialMatrix():
     def __init__(self):
@@ -195,7 +277,9 @@ class raytracing():
                       point[1]+r*sin(radians(psi))*sin(radians(teta)),
                       point[2]+r*cos(radians(teta))
                      ])
-    def createvector(self,x0y0z0,abg):
+
+    @staticmethod
+    def createvector(x0y0z0,abg):
         # Due to Python 2 -> Python 3.
         x0,y0,z0         = x0y0z0
         alpha,beta,gamma = abg
@@ -250,7 +334,9 @@ class raytracing():
         cosin = array([[alpha],[beta],[gamma]])
         # returns vector and the distance.
         return array([point,cosin]),s
-    def multiplytwovectors(self,vector1,vector2):
+
+    @staticmethod
+    def multiplytwovectors(vector1,vector2):
         # Multiply two vectors and return the resultant vector.
         # Used method described under:
         # Cross-product: http://en.wikipedia.org/wiki/Cross_product
@@ -459,6 +545,8 @@ class raytracing():
         normvec = FuncNorm(x,y,z,SurfParam)
         return distance+shift,normvec
     def findintersurface(self,vector,points):
+        if not (isinstance(vector, ndarray)):
+            return 0,0
         point0,point1,point2 = points
         # Method to find intersection point inbetween a surface and a vector
         # See http://geomalgorithms.com/a06-_intersect-2.html
@@ -654,6 +742,41 @@ class raytracing():
         # Method to close all figures.
         self.plt.close('all')
         return True
+
+class Plane():
+    center = None
+    normalAngles = None
+    normalRay = None
+    surfaceRay1 = None
+    surfaceRay2 = None
+    sizeAlongSurfaceRay = None
+    sizePerpendicularSurfaceRay = None
+    corner1 = None
+    corner2 = None
+    corner3 = None
+    corner4 = None
+
+    def init(self):
+        self.center = array([0,0,0])
+        self.normalAngles = array([90, 90, 0])
+        self.normalRay = raytracing.createvector(self.center, self.normalAngles)
+        self.surfaceRay1 = raytracing.createvector(self.center, (90, 0, 90))
+        self.surfaceRay2 = raytracing.multiplytwovectors(self.normalRay, self.surfaceRay1)
+        self.sizeAlongSurfaceRay = 20
+        self.sizePerpendicularSurfaceRay = 20
+        self.calculateCorners()
+        
+                                   
+
+    def calculateCorners(self):
+        dirSurfaceRay = self.surfaceRay1[1,:]
+        dirSurfaceRay = dirSurfaceRay.reshape(3,)
+        dirPerpendicularSurfaceRay = self.surfaceRay2[1,:]
+        dirPerpendicularSurfaceRay = dirPerpendicularSurfaceRay.reshape(3,)
+        self.corner1 = self.center + 0.5 * self.sizeAlongSurfaceRay*dirSurfaceRay + 0.5 * self.sizeAlongSurfaceRay*dirPerpendicularSurfaceRay
+        self.corner2 = self.center + 0.5 * self.sizeAlongSurfaceRay*dirSurfaceRay - 0.5 * self.sizeAlongSurfaceRay*dirPerpendicularSurfaceRay
+        self.corner3 = self.center - 0.5 * self.sizeAlongSurfaceRay*dirSurfaceRay - 0.5 * self.sizeAlongSurfaceRay*dirPerpendicularSurfaceRay
+        self.corner4 = self.center - 0.5 * self.sizeAlongSurfaceRay*dirSurfaceRay + 0.5 * self.sizeAlongSurfaceRay*dirPerpendicularSurfaceRay
 
 class jonescalculus():
     def __init__(self):
