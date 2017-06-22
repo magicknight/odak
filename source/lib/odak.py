@@ -29,6 +29,9 @@ def prompt(txt,who='odak',debug=True):
     if debug == True:
         print('[%s] [%s] %s' % (str(datetime.now()),who,txt))
 
+def microns2mm(val):
+    return val*0.001
+    
 def inches2mm(val):
     return val*0.0254*1000
 
@@ -81,16 +84,10 @@ def checkPointInSphere(pt, sphere):
     else:
         return False
 
-class Sphere():
-    def __init__(self):
-        self.radius = 20
-        self.center = array([0,0,0])
-        print 'This was called'
-
 class Plane():
     def __init__(self):
         self.center = array([0,0,0])
-        self.normalAngles = array([90, 90, 0])
+        self.normalAngles = array([0, 90, 90])
         self.normalRay = raytracing.createvector(self.center, self.normalAngles)
         self.surfaceRay1 = raytracing.createvector(self.center, (90, 0, 90))
         self.surfaceRay2 = raytracing.multiplytwovectors(self.normalRay, self.surfaceRay1)
@@ -111,23 +108,38 @@ class Plane():
 class Lens():
     def __init__(self):
         self.lensPlane = Plane()
-        self.sphere1 = Sphere()
-        self.sphere2 = Sphere()
         self.centerThickness = 5
-
-        length = array([self.sphere1.radius - 0.5*self.centerThickness])
-        self.sphere1.center = self.lensPlane.center - length*raytracing.returnRayDirection(self.lensPlane.normalRay)
-
-        length = array([self.sphere2.radius - 0.5*self.centerThickness])
-        self.sphere2.center = self.lensPlane.center - length*raytracing.returnRayDirection(self.lensPlane.normalRay)
+        self.sphere1_radius = 20
+        self.sphere2_radius = 20
 
         raytracer = raytracing()
-        self.sphere1 = raytracer.plotsphericallens(self.sphere1.center[0], self.sphere1.center[1],self.sphere1.center[2], self.sphere1.radius, PlotFlag=False)
+        length = array([self.sphere1_radius - 0.5*self.centerThickness])
+        center = self.lensPlane.center - length*raytracing.returnRayDirection(self.lensPlane.normalRay)
+        self.sphere1 = raytracer.plotsphericallens(center[0], center[1], center[2], self.sphere1_radius, PlotFlag=False)
         self.mesh1 = raytracer.CalculateSpherMesh(self.sphere1)
-        self.sphere2 = raytracer.plotsphericallens(radius1 - centerThickness/2,0,0,radius1, PlotFlag=False)
+
+        length = array([self.sphere2_radius - 0.5*self.centerThickness])
+        center = self.lensPlane.center + length*raytracing.returnRayDirection(self.lensPlane.normalRay)
+        self.sphere2 = raytracer.plotsphericallens(center[0], center[1], center[2], self.sphere2_radius, PlotFlag=False)
         self.mesh2 = raytracer.CalculateSpherMesh(self.sphere2)
+
         self.calculateIntersectionSpheres(self.mesh1, self.mesh2)
 
+    def recalculateLensParameters(self):
+        raytracer = raytracing()
+        length = array([self.sphere1_radius - 0.5*self.centerThickness])
+        center = self.lensPlane.center - length*raytracing.returnRayDirection(self.lensPlane.normalRay)
+        self.sphere1 = raytracer.plotsphericallens(center[0], center[1], center[2], self.sphere1_radius, PlotFlag=False)
+        self.mesh1 = raytracer.CalculateSpherMesh(self.sphere1)
+
+        length = array([self.sphere2_radius - 0.5*self.centerThickness])
+        center = self.lensPlane.center + length*raytracing.returnRayDirection(self.lensPlane.normalRay)
+        self.sphere2 = raytracer.plotsphericallens(center[0], center[1], center[2], self.sphere2_radius, PlotFlag=False)
+        self.mesh2 = raytracer.CalculateSpherMesh(self.sphere2)
+
+        self.calculateIntersectionSpheres(self.mesh1, self.mesh2)
+        
+        
     def recalculateLensMeshes(self):
         raytracer = raytracing()
         self.mesh1 = raytracer.CalculateSpherMesh(self.sphere1)
