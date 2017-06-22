@@ -81,14 +81,59 @@ def checkPointInSphere(pt, sphere):
     else:
         return False
 
+class Sphere():
+    def __init__(self):
+        self.radius = 20
+        self.center = array([0,0,0])
+        print 'This was called'
+
+class Plane():
+    def __init__(self):
+        self.center = array([0,0,0])
+        self.normalAngles = array([90, 90, 0])
+        self.normalRay = raytracing.createvector(self.center, self.normalAngles)
+        self.surfaceRay1 = raytracing.createvector(self.center, (90, 0, 90))
+        self.surfaceRay2 = raytracing.multiplytwovectors(self.normalRay, self.surfaceRay1)
+        self.sizeAlongSurfaceRay = 20
+        self.sizePerpendicularSurfaceRay = 20
+        self.calculateCorners()
+        
+    def calculateCorners(self):
+        dirSurfaceRay = self.surfaceRay1[1,:]
+        dirSurfaceRay = dirSurfaceRay.reshape(3,)
+        dirPerpendicularSurfaceRay = self.surfaceRay2[1,:]
+        dirPerpendicularSurfaceRay = dirPerpendicularSurfaceRay.reshape(3,)
+        self.corner1 = self.center + 0.5 * self.sizeAlongSurfaceRay*dirSurfaceRay + 0.5 * self.sizeAlongSurfaceRay*dirPerpendicularSurfaceRay
+        self.corner2 = self.center + 0.5 * self.sizeAlongSurfaceRay*dirSurfaceRay - 0.5 * self.sizeAlongSurfaceRay*dirPerpendicularSurfaceRay
+        self.corner3 = self.center - 0.5 * self.sizeAlongSurfaceRay*dirSurfaceRay - 0.5 * self.sizeAlongSurfaceRay*dirPerpendicularSurfaceRay
+        self.corner4 = self.center - 0.5 * self.sizeAlongSurfaceRay*dirSurfaceRay + 0.5 * self.sizeAlongSurfaceRay*dirPerpendicularSurfaceRay
 
 class Lens():
-    sphere1 = None
-    sphere2 = None
-    mesh = None
-    mesh1 = None
-    mesh2 = None
-    
+    def __init__(self):
+        self.lensPlane = Plane()
+        self.sphere1 = Sphere()
+        self.sphere2 = Sphere()
+        self.centerThickness = 5
+
+        length = array([self.sphere1.radius - 0.5*self.centerThickness])
+        self.sphere1.center = self.lensPlane.center - length*raytracing.returnRayDirection(self.lensPlane.normalRay)
+
+        length = array([self.sphere2.radius - 0.5*self.centerThickness])
+        self.sphere2.center = self.lensPlane.center - length*raytracing.returnRayDirection(self.lensPlane.normalRay)
+
+        raytracer = raytracing()
+        self.sphere1 = raytracer.plotsphericallens(self.sphere1.center[0], self.sphere1.center[1],self.sphere1.center[2], self.sphere1.radius, PlotFlag=False)
+        self.mesh1 = raytracer.CalculateSpherMesh(self.sphere1)
+        self.sphere2 = raytracer.plotsphericallens(radius1 - centerThickness/2,0,0,radius1, PlotFlag=False)
+        self.mesh2 = raytracer.CalculateSpherMesh(self.sphere2)
+        self.calculateIntersectionSpheres(self.mesh1, self.mesh2)
+
+    def recalculateLensMeshes(self):
+        raytracer = raytracing()
+        self.mesh1 = raytracer.CalculateSpherMesh(self.sphere1)
+        self.mesh2 = raytracer.CalculateSpherMesh(self.sphere2)
+        self.calculateIntersectionSpheres(self.mesh1, self.mesh2)
+
     def calculateIntersectionSpheres(self, mesh1, mesh2):
         sampleno = mesh1.shape[0]
         self.mesh = array([], type(mesh1[0,0,0])).reshape(3,0)
@@ -108,6 +153,12 @@ class Lens():
                     self.mesh = concatenate((self.mesh, mesh2[i+1,j,:].reshape(3,1)), axis = 1)
                 if(checkPointInSphere(mesh2[i,j+1], self.sphere1)):
                     self.mesh = concatenate((self.mesh, mesh2[i,j+1,:].reshape(3,1)), axis = 1)
+
+    def calculateSecondRadiusLens(f, n, R1):
+        # Taken from https://en.wikipedia.org/wiki/Lens_(optics)#Lensmaker.27s_equation
+        radius2 = ((n-1)*d - n*R1)/(((n*R1)/(f*(n-1))) - n)
+        return radius2
+
 
 
 class ParaxialMatrix():
@@ -334,6 +385,16 @@ class raytracing():
         cosin = array([[alpha],[beta],[gamma]])
         # returns vector and the distance.
         return array([point,cosin]),s
+
+    @staticmethod
+    def returnRayOrigin(vector):
+        loc = [vector[0,0,0], vector[0,1,0], vector[0,2,0]]
+        return loc
+
+    @staticmethod
+    def returnRayDirection(vector):
+        dir = array([vector[1,0,0], vector[1,1,0], vector[1,2,0]])
+        return dir
 
     @staticmethod
     def multiplytwovectors(vector1,vector2):
@@ -742,41 +803,6 @@ class raytracing():
         # Method to close all figures.
         self.plt.close('all')
         return True
-
-class Plane():
-    center = None
-    normalAngles = None
-    normalRay = None
-    surfaceRay1 = None
-    surfaceRay2 = None
-    sizeAlongSurfaceRay = None
-    sizePerpendicularSurfaceRay = None
-    corner1 = None
-    corner2 = None
-    corner3 = None
-    corner4 = None
-
-    def init(self):
-        self.center = array([0,0,0])
-        self.normalAngles = array([90, 90, 0])
-        self.normalRay = raytracing.createvector(self.center, self.normalAngles)
-        self.surfaceRay1 = raytracing.createvector(self.center, (90, 0, 90))
-        self.surfaceRay2 = raytracing.multiplytwovectors(self.normalRay, self.surfaceRay1)
-        self.sizeAlongSurfaceRay = 20
-        self.sizePerpendicularSurfaceRay = 20
-        self.calculateCorners()
-        
-                                   
-
-    def calculateCorners(self):
-        dirSurfaceRay = self.surfaceRay1[1,:]
-        dirSurfaceRay = dirSurfaceRay.reshape(3,)
-        dirPerpendicularSurfaceRay = self.surfaceRay2[1,:]
-        dirPerpendicularSurfaceRay = dirPerpendicularSurfaceRay.reshape(3,)
-        self.corner1 = self.center + 0.5 * self.sizeAlongSurfaceRay*dirSurfaceRay + 0.5 * self.sizeAlongSurfaceRay*dirPerpendicularSurfaceRay
-        self.corner2 = self.center + 0.5 * self.sizeAlongSurfaceRay*dirSurfaceRay - 0.5 * self.sizeAlongSurfaceRay*dirPerpendicularSurfaceRay
-        self.corner3 = self.center - 0.5 * self.sizeAlongSurfaceRay*dirSurfaceRay - 0.5 * self.sizeAlongSurfaceRay*dirPerpendicularSurfaceRay
-        self.corner4 = self.center - 0.5 * self.sizeAlongSurfaceRay*dirSurfaceRay + 0.5 * self.sizeAlongSurfaceRay*dirPerpendicularSurfaceRay
 
 class jonescalculus():
     def __init__(self):
