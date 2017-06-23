@@ -342,6 +342,15 @@ class raytracing():
                      ])
 
     @staticmethod
+    def propagateRay(vec, distance):
+        loc = [vec[0,0,0], vec[0,1,0], vec[0,2,0]]
+        dir = [vec[1,0,0], vec[1,1,0], vec[1,2,0]]
+        if(isscalar(distance)):
+            distance = array([distance])
+        des = loc + distance*dir
+        return des
+
+    @staticmethod
     def createvector(x0y0z0,abg):
         # Due to Python 2 -> Python 3.
         x0,y0,z0         = x0y0z0
