@@ -9,9 +9,6 @@ from math import cos, radians, sin
 
 
 import odak
-import glHelper as gl
-import odakExtension as ext
-
 
 __author__ = ("Kishore Rathinavel")
 
@@ -24,6 +21,66 @@ mouseLeft, mouseMiddle, mouseRight = False, False, False
 eyeVectorAxisAngles = [ 90.0, 45.0 ]
 eyeDistFromOrigin = 100.0
 upVec = [0.0, 0.0, 1.0]
+
+def callGLVertex3f(pt):
+    glVertex3f(pt[0], pt[1], pt[2])
+
+def callGLNormal3f(pt):
+    glNormal3f(pt[0], pt[1], pt[2])
+
+def drawRay(vector, distance):
+    loc = [vector[0,0,0], vector[0,1,0], vector[0,2,0]]
+    dir = [vector[1,0,0], vector[1,1,0], vector[1,2,0]]
+    des = loc + distance*dir
+    # print des
+    # input ('Enter key to continue')
+    glBegin(GL_LINES)
+    callGLVertex3f(loc)
+    callGLVertex3f(des)
+    glEnd()
+
+def drawMeshAsPoints(mesh):
+    dims = mesh.shape
+    # print dims
+    # input ('Enter key to continue')
+    glBegin(GL_POINTS)
+    for i in xrange(0, dims[1] - 1):
+        callGLVertex3f(mesh[:,i])
+    glEnd()
+
+def drawMeshAsLines(mesh):
+    sampleno = mesh.shape[0]
+    glBegin(GL_LINES)
+    for i in xrange(0, sampleno - 1):
+        for j in xrange(0, sampleno - 1):
+            callGLVertex3f(mesh[i,j])
+            callGLVertex3f(mesh[i+1,j])
+            callGLVertex3f(mesh[i,j+1])
+    glEnd()
+
+def drawMeshAsPolygons(mesh):
+    sampleno = mesh.shape[0]
+    glBegin(GL_POLYGON)
+    for i in xrange(0, sampleno - 1):
+        for j in xrange(0, sampleno - 1):
+            callGLVertex3f(mesh[i,j])
+            callGLVertex3f(mesh[i+1,j])
+            callGLVertex3f(mesh[i,j+1])
+    glEnd()
+
+def drawMeshAsTriangles(mesh):
+    sampleno = mesh.shape[0]
+    for i in xrange(0, sampleno - 1):
+        for j in xrange(0, sampleno - 1):
+            glBegin(GL_TRIANGLES)
+            callGLNormal3f(mesh[i,j])
+            callGLVertex3f(mesh[i,j])
+            callGLNormal3f(mesh[i+1,j])
+            callGLVertex3f(mesh[i+1,j])
+            callGLNormal3f(mesh[i,j+1])
+            callGLVertex3f(mesh[i,j+1])
+            glEnd()
+
 
 def setupCamera(width, height):
     glViewport(0, 0, width, height)
@@ -80,6 +137,14 @@ def motionFunc(x, y):
         if(eyeDistFromOrigin < 0.5):
             eyeDistFromOrigin = 0.5
 
+def rotateRayWorldZ(ray, angle):
+    loc = ray[:1,:]
+    dir = ray[1:,:]
+    mat = np.array([[cos(radians(angle)), -sin(radians(angle)), 0], [sin(radians(angle)), cos(radians(angle)), 0], [0, 0, 1]])
+    new_dir = mat.dot(dir)
+    new_dir = np.reshape(new_dir, dir.shape)
+    new_ray = np.concatenate((loc, new_dir), axis=0)
+    return new_ray
 
 def example_of_ray_tracing():
     n         = 1
@@ -89,26 +154,26 @@ def example_of_ray_tracing():
     mesh = raytracer.CalculateSpherMesh(sphere)
 
     glColor4f(0.0, 0.0, 1.0, 0.9)
-    # gl.drawMeshAsPolygons(mesh)
-    # gl.drawMeshAsTriangles(mesh)
-    gl.drawMeshAsLines(mesh)
+    # drawMeshAsPolygons(mesh)
+    # drawMeshAsTriangles(mesh)
+    drawMeshAsLines(mesh)
 
     glColor3f(1.0, 1.0, 0.0)
     for angle in xrange(-20, 20):
         # ray            = raytracer.createvector((-20,0, 20),(angle, 90 - angle, 135))
         ray            = raytracer.createvector((-20,0, 20),(45, 90, 135))
-        ray = ext.rotateRayWorldZ(ray, angle)
+        ray = rotateRayWorldZ(ray, angle)
         # print ray
         glColor3f(1.0, 1.0, 0.0)
         distance,normvec  = raytracer.findinterspher(ray,sphere)
         if distance != 0:
-            gl.drawRay(ray,distance)
+            drawRay(ray,distance)
             refractedRay = raytracer.snell(ray,normvec,1.0,1.51)
             distance,normvec  = raytracer.findinterspher(refractedRay,sphere)
         if distance != 0:
-            gl.drawRay(refractedRay,distance)
+            drawRay(refractedRay,distance)
             refractedRay2 = raytracer.snell(refractedRay,normvec,1.51,1.)
-            gl.drawRay(refractedRay2, np.array([40]))
+            drawRay(refractedRay2, np.array([40]))
     return
 
 
@@ -140,7 +205,6 @@ def drawWorldCoordinateAxes():
     glVertex3f(0, 0, inf)
     glEnd()
     glDisable(GL_LINE_STIPPLE);
-
 
 def draw():
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
