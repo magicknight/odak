@@ -110,7 +110,10 @@ class Lens():
         self.lensPlane = Plane()
         self.centerThickness = 5
         self.sphere1_radius = 20
-        self.sphere2_radius = 20
+        self.aperture = 10
+        self.focalLength = 20
+        self.refractiveIndex = 1.5168
+        self.sphere2_radius = self.calculateSecondRadiusLens()
 
         raytracer = raytracing()
         length = array([self.sphere1_radius - 0.5*self.centerThickness])
@@ -139,7 +142,6 @@ class Lens():
 
         self.calculateIntersectionSpheres(self.mesh1, self.mesh2)
         
-        
     def recalculateLensMeshes(self):
         raytracer = raytracing()
         self.mesh1 = raytracer.CalculateSpherMesh(self.sphere1)
@@ -166,8 +168,12 @@ class Lens():
                 if(checkPointInSphere(mesh2[i,j+1], self.sphere1)):
                     self.mesh = concatenate((self.mesh, mesh2[i,j+1,:].reshape(3,1)), axis = 1)
 
-    def calculateSecondRadiusLens(f, n, R1):
+    def calculateSecondRadiusLens(self):
         # Taken from https://en.wikipedia.org/wiki/Lens_(optics)#Lensmaker.27s_equation
+        f = self.focalLength
+        n = self.refractiveIndex
+        R1 = self.sphere1_radius
+        d = self.centerThickness
         radius2 = ((n-1)*d - n*R1)/(((n*R1)/(f*(n-1))) - n)
         return radius2
 
