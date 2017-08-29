@@ -33,13 +33,16 @@ def microns2mm(val):
     return val*0.001
     
 def inches2mm(val):
-    return val*0.0254*1000
+    return val*25.4
 
 def inches2m(val):
     return val*0.0254
 
 def mm2m(val):
     return val*0.001
+
+def cm2mm(val):
+    return val*10
 
 
 def rotateRayWorldX(ray, angle):
@@ -107,36 +110,41 @@ class Plane():
 
 class Lens():
     def __init__(self):
-        self.lensPlane = Plane()
-        self.centerThickness = 5
-        self.sphere1_radius = 20
+        raytracer = raytracing()
+
+        # self.lensPlane = Plane()
+        self.center = array([0,0,0])
+        self.axis1 = raytracing.createvector(self.center, (0, 90, 90))
+        self.axis2 = raytracing.createvector(self.center, (0, 90, 90))
         self.aperture = 10
         self.focalLength = 20
         self.refractiveIndex = 1.5168
+        self.sphere1_radius = 20
+        self.centerThickness = 5
         self.sphere2_radius = self.calculateSecondRadiusLens()
 
+        self.calculateLensParameters()
+        # length = array([self.sphere1_radius - 0.5*self.centerThickness])
+        # center = self.lensPlane.center - length*raytracing.returnRayDirection(self.lensPlane.normalRay)
+        # self.sphere1 = raytracer.plotsphericallens(center[0], center[1], center[2], self.sphere1_radius, PlotFlag=False)
+        # self.mesh1 = raytracer.CalculateSpherMesh(self.sphere1)
+
+        # length = array([self.sphere2_radius - 0.5*self.centerThickness])
+        # center = self.lensPlane.center + length*raytracing.returnRayDirection(self.lensPlane.normalRay)
+        # self.sphere2 = raytracer.plotsphericallens(center[0], center[1], center[2], self.sphere2_radius, PlotFlag=False)
+        # self.mesh2 = raytracer.CalculateSpherMesh(self.sphere2)
+
+        # self.calculateIntersectionSpheres(self.mesh1, self.mesh2)
+
+    def calculateLensParameters(self):
         raytracer = raytracing()
         length = array([self.sphere1_radius - 0.5*self.centerThickness])
-        center = self.lensPlane.center - length*raytracing.returnRayDirection(self.lensPlane.normalRay)
+        center = self.center - length*raytracing.returnRayDirection(self.axis1)
         self.sphere1 = raytracer.plotsphericallens(center[0], center[1], center[2], self.sphere1_radius, PlotFlag=False)
         self.mesh1 = raytracer.CalculateSpherMesh(self.sphere1)
 
         length = array([self.sphere2_radius - 0.5*self.centerThickness])
-        center = self.lensPlane.center + length*raytracing.returnRayDirection(self.lensPlane.normalRay)
-        self.sphere2 = raytracer.plotsphericallens(center[0], center[1], center[2], self.sphere2_radius, PlotFlag=False)
-        self.mesh2 = raytracer.CalculateSpherMesh(self.sphere2)
-
-        self.calculateIntersectionSpheres(self.mesh1, self.mesh2)
-
-    def recalculateLensParameters(self):
-        raytracer = raytracing()
-        length = array([self.sphere1_radius - 0.5*self.centerThickness])
-        center = self.lensPlane.center - length*raytracing.returnRayDirection(self.lensPlane.normalRay)
-        self.sphere1 = raytracer.plotsphericallens(center[0], center[1], center[2], self.sphere1_radius, PlotFlag=False)
-        self.mesh1 = raytracer.CalculateSpherMesh(self.sphere1)
-
-        length = array([self.sphere2_radius - 0.5*self.centerThickness])
-        center = self.lensPlane.center + length*raytracing.returnRayDirection(self.lensPlane.normalRay)
+        center = self.center + length*raytracing.returnRayDirection(self.axis2)
         self.sphere2 = raytracer.plotsphericallens(center[0], center[1], center[2], self.sphere2_radius, PlotFlag=False)
         self.mesh2 = raytracer.CalculateSpherMesh(self.sphere2)
 
@@ -593,6 +601,38 @@ class raytracing():
     def findinterspher(self,vector,sphere,init=None,error=0.00000001,numiter=1000,iternotify='no'):
         # Definition to return intersection of a ray with a sphere.
         return self.FindInterFunc(vector,sphere,self.FuncSpher,self.FuncNormSpher,init=init,error=error,numiter=numiter,iternotify=iternotify)
+
+    # @profile
+    def findintersphereFAST(self, vector, sphere):
+        # Algorithm based on https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection
+        # This algorithm gives very different answers compared to using FindInterFunc
+        rayOrigin = vector[0,:,0]
+        rayDirection = vector[1,:,0]
+        sphereCenter = sphere[0:3]
+        sphereRadius = sphere[3]
+        a1 = rayOrigin - sphereCenter
+        q_a = 1
+        q_b = 2*dot(rayDirection, a1)
+        q_c = dot(a1, a1) - sphereRadius**2
+        q_b4ac = q_b**2 - 4*q_c
+        if(q_b4ac < 0):
+            distance = 0
+            normvec = rayDirection
+        else:
+            if(q_b4ac == 0):
+                distance = -0.5*q_b
+            else:
+                sr_q_b4ac = sqrt(q_b4ac)
+                distance = -0.5*q_b + sr_q_b4ac
+            normvec = (distance*rayDirection) - a1 # Simplified form of sphereCenter - (rayOrigin + distance*rayDirection)
+            normvec = normvec/sqrt(dot(normvec, normvec))
+            newRayDirection = transpose(normvec)
+            newRayOrigin = rayOrigin + distance*rayDirection
+            newRayOrigin = transpose(newRayOrigin)
+        return distance, normvec
+            
+        
+    # @profile
     def FindInterFunc(self,vector,SurfParam,Func,FuncNorm,init=None,error=0.00000001,numiter=1000,iternotify='no'):
         # Method for finding intersection in between a vector and a parametric surface
         if not (isinstance(vector, ndarray)):
@@ -632,6 +672,46 @@ class raytracing():
                return 0,0
         normvec = FuncNorm(x,y,z,SurfParam)
         return distance+shift,normvec
+
+    # def FindInterFunc(self,vector,SurfParam,Func,FuncNorm,init=None,error=0.00000001,numiter=1000,iternotify='no'):
+    #     # Method for finding intersection in between a vector and a parametric surface
+    #     if not (isinstance(vector, ndarray)):
+    #         return 0,0
+    #     number   = 0
+    #     distance = 1
+    #     olddist  = 0
+    #     shift = 0
+    #     if init == None:
+    #         distance = 1.
+    #     else:
+    #         distance = init
+    #     epsilon  = error*2
+    #     k        = vector[0,0,0]
+    #     l        = vector[0,1,0]
+    #     m        = vector[0,2,0]
+    #     FXYZ     = Func(k,l,m,SurfParam)
+    #     if abs(FXYZ) < 0.01:
+    #         shift  = 1.5 * SurfParam[3]
+    #         k     += shift * vector[1,0]
+    #         l     += shift * vector[1,1]
+    #         m     += shift * vector[1,2]
+    #     while epsilon > error:
+    #         number   += 1
+    #         oldFXYZ   = FXYZ
+    #         x         = distance * vector[1,0] + k
+    #         y         = distance * vector[1,1] + l
+    #         z         = distance * vector[1,2] + m
+    #         FXYZ      = Func(x,y,z,SurfParam)
+    #         # Secant method is calculated, see wikipedia article of the method for more
+    #         newdist   = distance - FXYZ*(distance-olddist)/(FXYZ-oldFXYZ)
+    #         epsilon   = abs(newdist-distance)
+    #         olddist   = distance
+    #         distance  = newdist
+    #         # Check if the number of iterations are too much
+    #         if number > numiter:
+    #            return 0,0
+    #     normvec = FuncNorm(x,y,z,SurfParam)
+    #     return distance+shift,normvec
     def findintersurface(self,vector,points):
         if not (isinstance(vector, ndarray)):
             return 0,0
