@@ -121,7 +121,7 @@ class Lens():
         self.refractiveIndex = 1.5168
         self.sphere1_radius = 20
         self.centerThickness = 5
-        self.sphere2_radius = self.calculateSecondRadiusLens()
+        self.sphere2_radius = self.calculateSecondRadiusLens(self.sphere1_radius)
 
         self.calculateLensParameters()
         # length = array([self.sphere1_radius - 0.5*self.centerThickness])
@@ -158,12 +158,12 @@ class Lens():
         length = array([self.sphere1_radius - 0.5*self.centerThickness])
         center = self.center - length*raytracing.returnRayDirection(self.axis1)
         self.sphere1 = raytracer.plotsphericallens(center[0], center[1], center[2], self.sphere1_radius, PlotFlag=False)
-        self.mesh1 = raytracer.CalculateSpherMesh(self.sphere1)
+        self.mesh1 = raytracer.CalculateSpherMesh(self.sphere1, sampleno=30)
 
         length = array([self.sphere2_radius - 0.5*self.centerThickness])
         center = self.center + length*raytracing.returnRayDirection(self.axis2)
         self.sphere2 = raytracer.plotsphericallens(center[0], center[1], center[2], self.sphere2_radius, PlotFlag=False)
-        self.mesh2 = raytracer.CalculateSpherMesh(self.sphere2)
+        self.mesh2 = raytracer.CalculateSpherMesh(self.sphere2, sampleno=30)
 
         self.calculateIntersectionSpheres(self.mesh1, self.mesh2)
         
@@ -193,13 +193,12 @@ class Lens():
                 # if(checkPointInSphere(mesh2[i,j+1], self.sphere1)):
                 #     self.mesh = concatenate((self.mesh, mesh2[i,j+1,:].reshape(3,1)), axis = 1)
 
-    def calculateSecondRadiusLens(self):
+    def calculateSecondRadiusLens(self, knownR):
         # Taken from https://en.wikipedia.org/wiki/Lens_(optics)#Lensmaker.27s_equation
         f = self.focalLength
         n = self.refractiveIndex
-        R1 = self.sphere1_radius
         d = self.centerThickness
-        radius2 = ((n-1)*d - n*R1)/(((n*R1)/(f*(n-1))) - n)
+        radius2 = ((n-1)*d - n*knownR)/(((n*knownR)/(f*(n-1))) - n)
         return radius2
 
 
