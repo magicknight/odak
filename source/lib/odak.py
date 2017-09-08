@@ -136,6 +136,23 @@ class Lens():
 
         # self.calculateIntersectionSpheres(self.mesh1, self.mesh2)
 
+    def calculateLensParameters2(self):
+        raytracer = raytracing()
+        length = array([self.sphere1_radius - 0.5*self.centerThickness])
+        center = self.center - length*raytracing.returnRayDirection(self.axis1)
+        self.sphere1 = raytracer.plotsphericallens(center[0], center[1], center[2], self.sphere1_radius, PlotFlag=False)
+        # anglev - angle on x-y plane (axis of rotation is z-axis). angleu - the other angle in polar coordinates
+        # def CalculateSpherMesh(self,spher,sampleno=100,angleu=[0,pi],anglev=[0,2*pi]):
+        angle = arccos((self.sphere1_radius - self.centerThickness)/self.sphere1_radius)
+        self.mesh1 = raytracer.CalculateSpherMesh(self.sphere1, angleu=[angle,pi - angle], anglev=[(pi/2)-angle,(pi/2)-angle + 2*angle])
+
+        length = array([self.sphere2_radius - 0.5*self.centerThickness])
+        center = self.center + length*raytracing.returnRayDirection(self.axis2)
+        self.sphere2 = raytracer.plotsphericallens(center[0], center[1], center[2], self.sphere2_radius, PlotFlag=False)
+        self.mesh2 = raytracer.CalculateSpherMesh(self.sphere2)
+
+        self.calculateIntersectionSpheres(self.mesh1, self.mesh2)
+
     def calculateLensParameters(self):
         raytracer = raytracing()
         length = array([self.sphere1_radius - 0.5*self.centerThickness])
@@ -163,18 +180,18 @@ class Lens():
             for j in xrange(0, sampleno - 1):
                 if(checkPointInSphere(mesh1[i,j], self.sphere2)):
                     self.mesh = concatenate((self.mesh, mesh1[i,j,:].reshape(3,1)), axis = 1)
-                if(checkPointInSphere(mesh1[i+1,j], self.sphere2)):
-                    self.mesh = concatenate((self.mesh, mesh1[i+1,j,:].reshape(3,1)), axis = 1)
-                if(checkPointInSphere(mesh1[i,j+1], self.sphere2)):
-                    self.mesh = concatenate((self.mesh, mesh1[i,j+1,:].reshape(3,1)), axis = 1)
+                # if(checkPointInSphere(mesh1[i+1,j], self.sphere2)):
+                #     self.mesh = concatenate((self.mesh, mesh1[i+1,j,:].reshape(3,1)), axis = 1)
+                # if(checkPointInSphere(mesh1[i,j+1], self.sphere2)):
+                #     self.mesh = concatenate((self.mesh, mesh1[i,j+1,:].reshape(3,1)), axis = 1)
         for i in xrange(0, sampleno - 1):
             for j in xrange(0, sampleno - 1):
                 if(checkPointInSphere(mesh2[i,j], self.sphere1)):
                     self.mesh = concatenate((self.mesh, mesh2[i,j,:].reshape(3,1)), axis = 1)
-                if(checkPointInSphere(mesh2[i+1,j], self.sphere1)):
-                    self.mesh = concatenate((self.mesh, mesh2[i+1,j,:].reshape(3,1)), axis = 1)
-                if(checkPointInSphere(mesh2[i,j+1], self.sphere1)):
-                    self.mesh = concatenate((self.mesh, mesh2[i,j+1,:].reshape(3,1)), axis = 1)
+                # if(checkPointInSphere(mesh2[i+1,j], self.sphere1)):
+                #     self.mesh = concatenate((self.mesh, mesh2[i+1,j,:].reshape(3,1)), axis = 1)
+                # if(checkPointInSphere(mesh2[i,j+1], self.sphere1)):
+                #     self.mesh = concatenate((self.mesh, mesh2[i,j+1,:].reshape(3,1)), axis = 1)
 
     def calculateSecondRadiusLens(self):
         # Taken from https://en.wikipedia.org/wiki/Lens_(optics)#Lensmaker.27s_equation
@@ -347,6 +364,22 @@ class raytracing():
     def finddistancebetweentwopoints(self,Point1,Point2):
         # Function to find the distance between two points if there was a line intersecting at both of them.
         return sqrt(sum((array(Point1)-array(Point2))**2))
+    def findnormalprojectionofpointonline(self, Point, vector):
+        # Let Point be $P$ and the line be $l + \lambda \hat{d}$
+        # Then shortest distance between Point and vector is given by (assume $d$ is not normalized):
+        # $((l + \lambda d) - P).d = 0$
+        # $l.d + \lambda ||d||^2 - P.d = 0$
+        # $\lambda = \frac{(P-l).d}{||d||^2} = (P-l).\hat{d}$
+        # Point on line closest to $P$ is: $P' = l + \lambda \hat{d}$
+        loc = vector[0,:,0]
+        dir = vector[1,:,0]
+        # print(Point)
+        # print(loc)
+        # print(dir)
+        # print(dot((Point - loc), dir))
+        # input('Enter key to continue')
+        # lambda = multiarray.dot((Point - loc), dir)
+        return loc + dot((Point - loc), dir)*dir
     def sphericaltocartesian(self,point,r,psi,teta):
         # Function to convert from spherical coordinates to cartesian coordinates.
         return array([
@@ -602,7 +635,6 @@ class raytracing():
         # Definition to return intersection of a ray with a sphere.
         return self.FindInterFunc(vector,sphere,self.FuncSpher,self.FuncNormSpher,init=init,error=error,numiter=numiter,iternotify=iternotify)
 
-    # @profile
     def findintersphereFAST(self, vector, sphere):
         # Algorithm based on https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection
         # This algorithm gives very different answers compared to using FindInterFunc
@@ -632,7 +664,6 @@ class raytracing():
         return distance, normvec
             
         
-    # @profile
     def FindInterFunc(self,vector,SurfParam,Func,FuncNorm,init=None,error=0.00000001,numiter=1000,iternotify='no'):
         # Method for finding intersection in between a vector and a parametric surface
         if not (isinstance(vector, ndarray)):
