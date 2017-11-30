@@ -201,6 +201,28 @@ class Lens():
         radius2 = ((n-1)*d - n*knownR)/(((n*knownR)/(f*(n-1))) - n)
         return radius2
 
+class PlanoConvexLens():
+    def __init__(self):
+        raytracer = raytracing()
+        self.center = array([0,0,0])
+        self.radius = 15
+        self.axis = raytracer.createvector(self.center, (0, 90, 90))
+        self.sphere = raytracer.plotsphericallens(self.center[0], self.center[1], self.center[2], self.radius, PlotFlag=False)
+        self.sphereMesh = raytracer.CalculateSpherMesh(self.sphere, sampleno = 30)
+        self.plane = Plane()
+        self.mesh = self.reduceMesh()
+
+    def reduceMesh(self):
+        raytracer = raytracing()
+        sampleno = self.sphereMesh.shape[0]
+        mesh = array([], type(self.sphereMesh[0,0,0])).reshape(3,0)
+        for i in xrange(0, sampleno - 1):
+            for j in xrange(0, sampleno - 1):
+                mp = self.sphereMesh[i,j]
+                mpPlaneRay, distance = raytracer.createvectorfromtwopoints(mp, self.plane.center)
+                if(dot(mpPlaneRay[1,:,0], self.plane.normalRay[1,:,0]) > 0):
+                    mesh = concatenate((mesh, self.sphereMesh[i,j,:].reshape(3,1)), axis = 1)
+        return mesh
 
 
 class ParaxialMatrix():
